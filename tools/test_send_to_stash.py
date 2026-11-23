@@ -113,11 +113,47 @@ with sync_playwright() as p:
     d1, d2 = b64json(one), b64json(two)
     check(len(d1["items"]) == 1 and len(d2["items"]) == 2 and d2["items"][0] == d1["items"][0] and d2["add"], f"songs collect: 1 then 2 ({[i[0] for i in d2['items']]})")
     check([i[0] for i in d2["items"]] == tapped, f"the right songs were added, the ones whose ⋯ was tapped ({tapped})")
+    # Backup: if Spotify's menu can't take the item (e.g. a different signed-in menu), a bar
+    # with an Add to Stash button shows above the player instead.
+    page.evaluate("window.__bspForceStashBar = true; window.__clip = ''")
+    page.keyboard.press("Escape")
+    row3 = page.locator("[data-testid=tracklist-row]").nth(3)
+    name3 = row3.locator("[data-testid=internal-track-link]").inner_text().strip()
+    row3.locator("[data-testid=more-button]").click()
+    page.wait_for_selector("#bsp-stash-bar.show", timeout=5000)
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(out / "t6_backup_bar.png"))
+    bar_name = page.locator("#bsp-stash-bar .bsp-stash-name").inner_text()
+    check(bar_name == name3 and page.locator("#context-menu .bsp-stash-item").count() == 0, f"backup bar names the song ({bar_name!r})")
+    page.locator("#bsp-stash-bar .bsp-stash-go").click()
+    page.wait_for_function("window.__clip", timeout=5000)
+    d3 = b64json(page.evaluate("window.__clip"))
+    check([i[0] for i in d3["items"]] == tapped + [name3], "backup bar's Add to Stash adds the song")
+    page.wait_for_timeout(500)
+    check(page.evaluate("!document.querySelector('#bsp-stash-bar.show')"), "backup bar goes away after tapping")
+    page.evaluate("window.__bspForceStashBar = false")
+
     page.locator("[data-testid=action-bar-row] [data-testid=more-button]").first.click()
     page.wait_for_selector("#context-menu", timeout=5000)
     page.wait_for_timeout(500)
     check(page.locator("#context-menu .bsp-stash-item").count() == 0, "the playlist's own ⋯ menu doesn't get Add to Stash")
     page.keyboard.press("Escape")
+
+    # Signed in, the list may lack role/aria-rowcount: the button must still read every song.
+    page.evaluate("document.querySelectorAll('#main-view [aria-rowcount]').forEach(g => { g.removeAttribute('aria-rowcount'); g.removeAttribute('role'); }); document.querySelectorAll('#main-view [aria-rowindex]').forEach(r => r.removeAttribute('aria-rowindex')); window.__clip = ''")
+    page.wait_for_timeout(300)
+    page.locator("#bsp-stash").click()
+    page.wait_for_function("window.__clip || /Tap to copy|Couldn/.test(document.querySelector('#bsp-stash').textContent)", timeout=60000)
+    if "Tap to copy" in page.locator("#bsp-stash").inner_text():
+        page.locator("#bsp-stash").click()
+        page.wait_for_function("window.__clip", timeout=5000)
+    raw = page.evaluate("window.__clip || ''")
+    label2 = page.locator("#bsp-stash").inner_text()
+    n2 = 0
+    if raw.startswith("STASH1:"):
+        b = raw[7:]
+        n2 = len(json.loads(zlib.decompress(base64.urlsafe_b64decode(b + "=" * (-len(b) % 4)), -15))["items"])
+    check(n2 >= total - 1, f"playlist button works without the list's row count ({n2} of {total}; button {label2!r})")
 
     # Stash in its own context: the userscript only runs on open.spotify.com on the phone.
     st = browser.new_context(**p.devices["iPhone 13"], locale="en-GB").new_page()

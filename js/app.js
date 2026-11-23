@@ -2,7 +2,7 @@ import { db, uid } from './db.js';
 import { readTags } from './tags.js';
 import { sameSong, normTitle, decodeTransfer, findLyrics } from './match.js';
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 
 /* ------------------------------------------------------------------ themes */
 // Same colours as BetterSpotify (../BetterSpotify-Safari/src/themes.json).
@@ -73,7 +73,17 @@ async function boot() {
   sortPlaylists();
   buildChrome();
   render();
-  if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    // A newer Stash took over: reload once to run it, unless music is playing.
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController && audio.paused && !sessionStorage.getItem('stash-reloaded')) {
+        sessionStorage.setItem('stash-reloaded', '1');
+        location.reload();
+      }
+    });
+    navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {});
+  }
   window.addEventListener('online', () => lyricsQueue.kick());
   lyricsQueue.kick();
   window.__stash = { S, importTransferText, addFiles }; // for tests
