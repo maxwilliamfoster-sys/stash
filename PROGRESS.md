@@ -76,3 +76,12 @@ belongs to and plays it all offline.
   add:true, items}). It's uncompressed so the copy happens right inside the tap. Stash 1.1.0
   decodes STASH0/1; `add` merges new songs only. The playlist button was renamed "Add to Stash".
   test_send_to_stash.py 18/18, test_stash.py 27/27, BSP test_full + test_iphone all pass.
+- 2026-11-23: Max's real signed-in iPhone. The song menu showed no item, so BSP 0.5.2 made it
+  layout-proof and added a backup bar. Then "it doesn't add it to stash", and the playlist button
+  said "Couldn't read this playlist". Fixes:
+  - BSP 0.5.3: the collector starts from the first tracklist-row and no longer needs the grid's
+    role/aria-rowcount. The count comes from "N songs" text, and the error shows its reason.
+  - Stash 1.1.1: the SW is network-first (3s timeout, then cache). Before, it was cache-first, so
+    a home-screen Stash opened at 1.0.0 kept running old code that rejects STASH0. A new SW
+    reloads the app once if nothing is playing. Checked live: the old 1.1.0 tab updated itself to
+    1.1.1. test_send_to_stash.py 22/22 (incl. no-rowcount), test_stash.py 27/27.
