@@ -5,9 +5,11 @@ sister app to `../BetterSpotify-Safari` and costs £0: plain HTML, CSS and JS, w
 and no server. Songs, playlists and lyrics stay on the phone.
 
 ## What it does
-- **Paste from Spotify**: in BetterSpotify (v0.4.0+, Full mode), open a playlist or Liked
-  Songs and tap **Send to Stash**. Then, in Stash, tap **Paste from Spotify**. The playlist
-  arrives with its song names, order and covers, but no audio.
+- **Paste from Spotify**: in BetterSpotify (v0.5.0+, Full mode), tap **Add to Stash** on a
+  playlist or Liked Songs, or tap **⋯** on any song and choose **Add to Stash**. Then, in
+  Stash, tap **Paste from Spotify**. A playlist arrives with its song names, order and covers,
+  but no audio. Single songs go into "Added from Spotify". BetterSpotify remembers every song
+  you've added, so one Paste brings in all of them, and Stash skips songs it already has.
 - **Add songs**: pick audio files from the Files app (MP3, M4A/AAC, FLAC, WAV, ...). Stash
   reads their tags (or the file name, such as "Artist - Title") and puts each song into every
   playlist it belongs to.

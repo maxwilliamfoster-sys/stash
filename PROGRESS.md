@@ -68,3 +68,11 @@ belongs to and plays it all offline.
 - 2026-11-23: Max said "Yes, publish it". Public repo maxwilliamfoster-sys/stash, Pages from main /
   -> https://maxwilliamfoster-sys.github.io/stash/ . Live check at 390x844: app renders, service
   worker active (scope /stash/), icons + manifest 200, no console errors. Next: install on the iPhone.
+- 2026-11-23: Stash icon is on Max's home screen. He asked to pick a song on Spotify and "add to
+  stash". BetterSpotify v0.5.0: every song's ⋯ button is shown on the phone (it is hover-only on
+  desktop), and its menu (`#context-menu ul[role=menu]`, cloned from Spotify's own first row)
+  gets "Add to Stash". The song goes into a basket in localStorage (max 500), and the whole basket
+  is copied as `STASH0:` + base64url(JSON {v:1, sid:'spotify-adds', name:'Added from Spotify',
+  add:true, items}). It's uncompressed so the copy happens right inside the tap. Stash 1.1.0
+  decodes STASH0/1; `add` merges new songs only. The playlist button was renamed "Add to Stash".
+  test_send_to_stash.py 18/18, test_stash.py 27/27, BSP test_full + test_iphone all pass.

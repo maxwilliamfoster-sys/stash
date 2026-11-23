@@ -2,7 +2,7 @@ import { db, uid } from './db.js';
 import { readTags } from './tags.js';
 import { sameSong, normTitle, decodeTransfer, findLyrics } from './match.js';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 /* ------------------------------------------------------------------ themes */
 // Same colours as BetterSpotify (../BetterSpotify-Safari/src/themes.json).
@@ -202,7 +202,7 @@ function renderPlaylists() {
       h(
         'ol',
         { class: 'steps' },
-        h('li', null, h('strong', null, 'Copy a playlist. '), 'In Safari, open a playlist or Liked Songs on Spotify and tap Send to Stash.'),
+        h('li', null, h('strong', null, 'Copy a playlist. '), 'In Spotify (Safari), tap Add to Stash on a playlist or Liked Songs, or tap ⋯ on any song and choose Add to Stash.'),
         h('li', null, h('strong', null, 'Paste it here. '), 'Tap Paste from Spotify. You’ll see which songs you still need.'),
         h('li', null, h('strong', null, 'Add the songs. '), 'Download them (free on SoundCloud or Bandcamp), then tap Add songs. Stash puts each one in the right playlists.')
       )
@@ -290,7 +290,9 @@ function renderPlaylist(id) {
   });
   if (pl.source === 'local') list.append(h('li', null, h('button', { type: 'button', class: 'row new-row', onclick: () => pickSongsFor(pl) }, h('div', { class: 'cover dashed small' }, icon('add')), h('div', { class: 'row-text' }, h('span', { class: 'row-title' }, 'Add songs to this playlist')))));
   wrap.append(list);
-  if (pl.source === 'spotify') wrap.append(h('p', { class: 'fine' }, 'Changed this playlist on Spotify? Tap Send to Stash there again, then Paste from Spotify. Songs you already have stay put.'));
+  if (pl.source === 'spotify') wrap.append(h('p', { class: 'fine' }, pl.sid === 'spotify-adds'
+    ? 'Songs you add from a song’s ⋯ menu in Spotify land here. Add more there, then Paste from Spotify.'
+    : 'Changed this playlist on Spotify? Tap Add to Stash there again, then Paste from Spotify. Songs you already have stay put.'));
   return wrap;
 }
 
@@ -398,7 +400,7 @@ function renderSettings() {
   wrap.append(h('p', { class: 'body' }, missingLyrics ? `${missingLyrics} song${missingLyrics === 1 ? '' : 's'} still need lyrics. They download from LRCLIB whenever you’re online.` : 'Lyrics are saved for all your songs, so they work offline.'));
   if (missingLyrics) wrap.append(h('button', { type: 'button', class: 'btn', onclick: () => { lyricsQueue.kick(true); toast('Getting lyrics…'); } }, 'Get lyrics now'));
   wrap.append(h('h2', null, 'About'));
-  wrap.append(h('p', { class: 'body' }, `Stash ${VERSION}. Your songs stay on this phone and never upload anywhere. Playlists come from BetterSpotify’s Send to Stash button. Lyrics from LRCLIB.`));
+  wrap.append(h('p', { class: 'body' }, `Stash ${VERSION}. Your songs stay on this phone and never upload anywhere. Playlists come from BetterSpotify’s Add to Stash button. Lyrics from LRCLIB.`));
   return wrap;
 }
 
@@ -507,7 +509,7 @@ async function pasteFromSpotify() {
   } catch (e) {
     text = '';
   }
-  if (text && text.includes('STASH1:')) return importTransferText(text);
+  if (text && /STASH[01]:/.test(text)) return importTransferText(text);
   pasteSheet();
 }
 
@@ -516,7 +518,7 @@ function pasteSheet() {
   const err = h('p', { class: 'error', hidden: true });
   sheet(
     h('h2', null, 'Paste your playlist'),
-    h('p', { class: 'body' }, 'In Safari, open a playlist or Liked Songs on Spotify and tap Send to Stash. Then come back here and paste.'),
+    h('p', { class: 'body' }, 'In Spotify (Safari), tap Add to Stash on a playlist, or tap ⋯ on a song and choose Add to Stash. Then come back here and paste.'),
     area,
     err,
     h('button', {
@@ -540,10 +542,19 @@ async function importTransferText(text) {
   const data = await decodeTransfer(text);
   let pl = S.playlists.find((p) => p.source === 'spotify' && p.sid === data.sid);
   const oldItems = pl ? pl.items : [];
-  const items = data.items.map((it) => {
-    const prev = oldItems.find((o) => o.trackId && sameSong(o, it));
-    return { ...it, trackId: prev ? prev.trackId : null };
-  });
+  let added = 0;
+  let items;
+  if (data.add) {
+    // Songs added one by one from Spotify's ⋯ menu: keep what's there, append only new songs.
+    const fresh = data.items.filter((it) => !oldItems.some((o) => sameSong(o, it)));
+    added = fresh.length;
+    items = [...oldItems, ...fresh.map((it) => ({ ...it, trackId: null }))];
+  } else {
+    items = data.items.map((it) => {
+      const prev = oldItems.find((o) => o.trackId && sameSong(o, it));
+      return { ...it, trackId: prev ? prev.trackId : null };
+    });
+  }
   if (pl) Object.assign(pl, { name: data.name, cover: data.cover, items, updatedAt: Date.now() });
   else {
     pl = { id: uid(), source: 'spotify', sid: data.sid, name: data.name, cover: data.cover, items, updatedAt: Date.now() };
@@ -554,7 +565,8 @@ async function importTransferText(text) {
   sortPlaylists();
   go({ name: 'playlist', id: pl.id }, true);
   const have = owned(pl).length;
-  toast(`${pl.name}: ${have} of ${pl.items.length} songs offline.`);
+  if (data.add) toast(added ? `Added ${added} new song${added === 1 ? '' : 's'}. ${have} of ${pl.items.length} offline.` : `Nothing new. ${have} of ${pl.items.length} songs offline.`);
+  else toast(`${pl.name}: ${have} of ${pl.items.length} songs offline.`);
   return pl;
 }
 

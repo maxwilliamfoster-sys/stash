@@ -40,21 +40,24 @@ export function sameSong(a, b) {
 
 /* ------------------------------------------------------- Send to Stash text */
 
-export const PREFIX = 'STASH1:';
+// STASH1: a whole playlist, deflate-compressed. STASH0: songs added one at a time from the ⋯
+// menu, not compressed (so BetterSpotify can copy it instantly inside the tap).
+export const TRANSFER_RE = /STASH([01]):/;
 const ART = 'https://i.scdn.co/image/';
 
 export async function decodeTransfer(text) {
-  const i = (text || '').indexOf(PREFIX);
-  if (i < 0) throw new Error('That isn’t a playlist from BetterSpotify. In Spotify, open a playlist and tap Send to Stash first.');
-  const b64 = text.slice(i + PREFIX.length).trim().split(/\s/)[0].replace(/-/g, '+').replace(/_/g, '/');
+  const m = (text || '').match(TRANSFER_RE);
+  if (!m) throw new Error('That isn’t from BetterSpotify. In Spotify, tap Add to Stash on a playlist or in a song’s ⋯ menu first.');
+  const b64 = text.slice(m.index + m[0].length).trim().split(/\s/)[0].replace(/-/g, '+').replace(/_/g, '/');
   const bytes = Uint8Array.from(atob(b64 + '==='.slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0));
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  const data = JSON.parse(await new Response(stream).text());
+  const body = m[1] === '1' ? new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')) : new Blob([bytes]);
+  const data = JSON.parse(await new Response(body).text());
   if (data.v !== 1 || !Array.isArray(data.items)) throw new Error('This playlist was copied by a newer BetterSpotify. Update Stash and try again.');
   const art = (id) => (id ? ART + id.replace(/^ab67616d0000(4851|1e02|b273)/, 'ab67616d00001e02') : '');
   return {
     sid: String(data.sid || ''),
     name: String(data.name || 'Spotify playlist'),
+    add: !!data.add,
     cover: data.cover ? (data.cover.startsWith('http') ? data.cover : art(data.cover)) : '',
     items: data.items.map(([title, artist, album, seconds, artId]) => ({
       title: String(title || ''),

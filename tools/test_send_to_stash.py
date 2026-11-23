@@ -81,6 +81,44 @@ with sync_playwright() as p:
     check(sum(1 for i in items if i[4]) >= len(items) - 2, "covers collected")
     check(data["name"] and data["sid"] == PLAYLIST.rstrip("/").split("/")[-1], f"playlist name and id ({data['name']}, {data['sid']})")
 
+    # Song menu: ⋯ on a song -> "Add to Stash" copies that song (STASH0, uncompressed).
+    def add_song(n):
+        page.evaluate("window.__clip = ''")
+        row = page.locator("[data-testid=tracklist-row]").nth(n)
+        tapped.append(row.locator("[data-testid=internal-track-link]").inner_text().strip())
+        row.locator("[data-testid=more-button]").click()
+        page.wait_for_selector("#context-menu .bsp-stash-item", timeout=5000)
+        if n == 0:
+            page.screenshot(path=str(out / "t3_song_menu.png"))
+        page.locator("#context-menu .bsp-stash-item button").click()
+        page.wait_for_function("window.__clip", timeout=5000)
+        page.wait_for_timeout(400)
+        return page.evaluate("window.__clip")
+
+    tapped = []
+    vis = page.evaluate("getComputedStyle(document.querySelector('[data-testid=tracklist-row] [data-testid=more-button]')).opacity")
+    check(vis == "1", f"each song's ⋯ button is visible on the phone (opacity {vis})")
+    one = add_song(0)
+    check(one.startswith("STASH0:"), "Add to Stash in a song's menu copies it")
+    check(page.evaluate("!document.querySelector('#context-menu') || getComputedStyle(document.querySelector('#context-menu').closest('[id^=tippy-]') || document.querySelector('#context-menu')).display === 'none'"), "the menu closes after tapping it")
+    toast = page.evaluate("(document.querySelector('#bsp-toast.show') || {}).textContent || ''")
+    check("Paste from Spotify" in toast, f"a note says what to do next ({toast!r})")
+    page.screenshot(path=str(out / "t4_added.png"))
+    two = add_song(2)
+
+    def b64json(t):
+        b = t.split(":", 1)[1]
+        return json.loads(base64.urlsafe_b64decode(b + "=" * (-len(b) % 4)))
+
+    d1, d2 = b64json(one), b64json(two)
+    check(len(d1["items"]) == 1 and len(d2["items"]) == 2 and d2["items"][0] == d1["items"][0] and d2["add"], f"songs collect: 1 then 2 ({[i[0] for i in d2['items']]})")
+    check([i[0] for i in d2["items"]] == tapped, f"the right songs were added, the ones whose ⋯ was tapped ({tapped})")
+    page.locator("[data-testid=action-bar-row] [data-testid=more-button]").first.click()
+    page.wait_for_selector("#context-menu", timeout=5000)
+    page.wait_for_timeout(500)
+    check(page.locator("#context-menu .bsp-stash-item").count() == 0, "the playlist's own ⋯ menu doesn't get Add to Stash")
+    page.keyboard.press("Escape")
+
     # Stash in its own context: the userscript only runs on open.spotify.com on the phone.
     st = browser.new_context(**p.devices["iPhone 13"], locale="en-GB").new_page()
     st.goto(f"http://localhost:{PORT}/")
@@ -94,6 +132,29 @@ with sync_playwright() as p:
     check(f"0 of {len(items)}" in st.locator(".meter-text").inner_text(), f"Stash lists all {len(items)} songs as still to get")
     st.wait_for_timeout(1500)
     st.screenshot(path=str(out / "t2_in_stash.png"))
+
+    def paste(text):
+        st.goto(f"http://localhost:{PORT}/")
+        st.wait_for_selector("html[data-ready='1']")
+        st.get_by_role("button", name="Paste from Spotify").click()
+        st.wait_for_selector("#sheet .paste-box")
+        st.fill("#sheet .paste-box", text)
+        st.get_by_role("button", name="Add playlist").click()
+        st.wait_for_selector(".pl-head h1", timeout=8000)
+        st.wait_for_timeout(600)
+        return st.locator(".pl-head h1").inner_text(), st.locator(".meter-text").inner_text(), st.locator("#toast").inner_text()
+
+    name1, meter1, _ = paste(one)
+    check(name1 == "Added from Spotify" and "0 of 1" in meter1, f"one song lands in 'Added from Spotify' ({name1}, {meter1})")
+    name2, meter2, t2 = paste(two)
+    check("0 of 2" in meter2 and "1 new" in t2, f"the next paste adds only the new song ({meter2}; {t2!r})")
+    _, meter3, t3 = paste(two)
+    check("0 of 2" in meter3 and "Nothing new" in t3, f"pasting the same again adds nothing ({t3!r})")
+    st.screenshot(path=str(out / "t5_added_in_stash.png"))
+    st.goto(f"http://localhost:{PORT}/")
+    st.wait_for_selector("html[data-ready='1']")
+    rows = st.locator(".list .row-title").all_inner_texts()
+    check(any("Added from Spotify" in r for r in rows) and any(data["name"] in r for r in rows), f"both playlists listed ({rows[:4]})")
 
 print("\nALL PASSED" if not failures else f"\n{len(failures)} FAILED", flush=True)
 srv.shutdown()

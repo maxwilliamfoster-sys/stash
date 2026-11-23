@@ -1,6 +1,6 @@
 // Offline: the app's own files come from the cache first; Spotify cover images are kept once
 // seen. Songs, playlists and lyrics live in IndexedDB, not here.
-const VERSION = 'stash-1.0.0';
+const VERSION = 'stash-1.1.0';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/db.js', 'js/tags.js', 'js/match.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
