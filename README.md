@@ -21,8 +21,10 @@ and no server. Songs, playlists and lyrics stay on the phone.
 
 Stash never downloads or decrypts Spotify audio. You get the files yourself, legally.
 
-## Install on the iPhone (once it's hosted)
-1. Open the Stash link in **Safari**.
+Live: https://maxwilliamfoster-sys.github.io/stash/ (GitHub Pages, repo `maxwilliamfoster-sys/stash`).
+
+## Install on the iPhone
+1. Open https://maxwilliamfoster-sys.github.io/stash/ in **Safari**.
 2. Share › **Add to Home Screen** › Add.
 3. Open Stash from the home-screen icon. Home-screen apps keep their own storage, separate from
    Safari, which is why playlists come across through the clipboard.

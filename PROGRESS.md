@@ -65,3 +65,6 @@ belongs to and plays it all offline.
   title, artist, length and cover, pasted into Stash = "0 of 50 songs offline". ALL PASSED.
   Not yet checked on the real iPhone: clipboard, Files import, lock screen, storage persistence.
   Next: Max agrees to publish -> GitHub Pages, then guide him through install one step at a time.
+- 2026-11-23: Max said "Yes, publish it". Public repo maxwilliamfoster-sys/stash, Pages from main /
+  -> https://maxwilliamfoster-sys.github.io/stash/ . Live check at 390x844: app renders, service
+  worker active (scope /stash/), icons + manifest 200, no console errors. Next: install on the iPhone.
